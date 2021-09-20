@@ -139,7 +139,6 @@ class BGNet_Plus(SubModule):
         final_cost_volume = wa * torch.cat(slice_dict_a,dim = 1) + wb * torch.cat(slice_dict_b,dim = 1)
         slice = self.softmax(final_cost_volume)
         disparity_samples = torch.arange(0, 97, dtype=slice.dtype, device=slice.device).view(1, 97, 1, 1)
-        
         disparity_samples = disparity_samples.repeat(slice.size()[0],1,slice.size()[2],slice.size()[3])
         half_disp = torch.sum(disparity_samples * slice,dim = 1).unsqueeze(1)
         left_half = F.interpolate(
@@ -153,9 +152,7 @@ class BGNet_Plus(SubModule):
                     mode='bilinear',
                     align_corners=False)
         refinement_disp = self.refinement_net(half_disp,left_half,right_half)
-        out1 = F.interpolate(refinement_disp * 2.0, scale_factor=(2.0, 2.0),
-                              mode='bilinear',align_corners =False).squeeze(1)
-        out2 = F.interpolate(half_disp * 2.0, scale_factor=(2.0, 2.0),
-                                      mode='bilinear',align_corners =False).squeeze(1)
+        out1 = F.interpolate(refinement_disp * 2.0, scale_factor=(2.0, 2.0),mode='bilinear',align_corners =False).squeeze(1)
+        out2 = F.interpolate(half_disp * 2.0, scale_factor=(2.0, 2.0),mode='bilinear',align_corners =False).squeeze(1)
                                             
         return out1,out2        
