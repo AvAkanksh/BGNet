@@ -21,13 +21,13 @@ from datasets.data_io import get_transform
 from models.bgnet import BGNet
 from models.bgnet_plus import BGNet_Plus
 
-model = BGNet_Plus().cuda()
+model = BGNet_Plus()
 
 checkpoint = torch.load('models/Sceneflow-IRS-BGNet-Plus.pth',map_location=lambda storage, loc: storage)
-model.load_state_dict(checkpoint) 
+model.load_state_dict(checkpoint)
 model.eval()
-left_img = Image.open('sample/im0.png').convert('L')
-right_img = Image.open('sample/im1.png').convert('L')
+left_img = Image.open('./sample/im0.png').convert('L')
+right_img = Image.open('./sample/im1.png').convert('L')
 w, h = left_img.size
 h1 = h % 64
 w1 = w % 64
@@ -42,6 +42,6 @@ right_img = np.ascontiguousarray(right_img, dtype=np.float32)
 preprocess = get_transform()
 left_img = preprocess(left_img)
 right_img = preprocess(right_img)
-pred,_ = model(left_img.unsqueeze(0).cuda(), right_img.unsqueeze(0).cuda()) 
-pred = pred[0].data.cpu().numpy() * 256   
+pred,_ = model(left_img.unsqueeze(0), right_img.unsqueeze(0))
+pred = pred[0].data.cpu().numpy() * 256
 skimage.io.imsave('sample_disp.png',pred.astype('uint16'))

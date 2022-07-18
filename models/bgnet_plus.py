@@ -16,14 +16,14 @@ import time
 class Slice(SubModule):
     def __init__(self):
         super(Slice, self).__init__()
-    
-    def forward(self, bilateral_grid, wg, hg, guidemap): 
+
+    def forward(self, bilateral_grid, wg, hg, guidemap):
         guidemap = guidemap.permute(0,2,3,1).contiguous() #[B,C,H,W]-> [B,H,W,C]
-        guidemap_guide = torch.cat([wg, hg, guidemap], dim=3).unsqueeze(1) # Nx1xHxWx3        
+        guidemap_guide = torch.cat([wg, hg, guidemap], dim=3).unsqueeze(1) # Nx1xHxWx3
         coeff = F.grid_sample(bilateral_grid, guidemap_guide,align_corners =False)
         return coeff.squeeze(2) #[B,1,H,W]
 
-       
+
 class GuideNN(SubModule):
     def __init__(self, params=None):
         super(GuideNN, self).__init__()
@@ -33,7 +33,7 @@ class GuideNN(SubModule):
 
     def forward(self, x):
         return self.conv2(self.conv1(x))
-        
+
 def groupwise_correlation(fea1, fea2, num_groups):
     B, C, H, W = fea1.shape
     assert C % num_groups == 0
@@ -49,9 +49,8 @@ def build_gwc_volume(refimg_fea, targetimg_fea, maxdisp, num_groups):
     #[B,G,D,H,W]
     volume = refimg_fea.new_zeros([B, num_groups, maxdisp, H, W])
     for i in range(maxdisp):
-        if i > 0:            
-            volume[:, :, i, :, i:] = groupwise_correlation(refimg_fea[:, :, :, i:], targetimg_fea[:, :, :, :-i],
-                                                           num_groups)
+        if i > 0:
+            volume[:, :, i, :, i:] = groupwise_correlation(refimg_fea[:, :, :, i:], targetimg_fea[:, :, :, :-i],num_groups)
         else:
             volume[:, :, i, :, :] = groupwise_correlation(refimg_fea, targetimg_fea, num_groups)
     volume = volume.contiguous()
@@ -80,8 +79,8 @@ class BGNet_Plus(SubModule):
         self.guide = GuideNN()
         self.slice = Slice()
         self.weight_init()
- 
-    def forward(self, left_input, right_input):        
+
+    def forward(self, left_input, right_input):
 
 
         left_low_level_features_1,  left_gwc_feature  = self.feature_extraction(left_input)
@@ -97,15 +96,16 @@ class BGNet_Plus(SubModule):
         index_float = index/4.0
         index_a = torch.floor(index_float)
         index_b = index_a + 1
-        
+
         index_a = torch.clamp(index_a, min=0, max= 24)
         index_b = torch.clamp(index_b, min=0, max= 24)
-        
+
         wa = index_b - index_float
         wb = index_float   - index_a
 
-        list_float = []  
+        list_float = []
         device = list_coeffs[0].get_device()
+        # device = 0
         wa  = wa.view(1,-1,1,1)
         wb  = wb.view(1,-1,1,1)
         wa = wa.to(device)
@@ -135,7 +135,7 @@ class BGNet_Plus(SubModule):
             inx_b  = min(inx_b,24)
             slice_dict_a.append(slice_dict[inx_a])
             slice_dict_b.append(slice_dict[inx_b])
-            
+
         final_cost_volume = wa * torch.cat(slice_dict_a,dim = 1) + wb * torch.cat(slice_dict_b,dim = 1)
         slice = self.softmax(final_cost_volume)
         disparity_samples = torch.arange(0, 97, dtype=slice.dtype, device=slice.device).view(1, 97, 1, 1)
@@ -154,5 +154,5 @@ class BGNet_Plus(SubModule):
         refinement_disp = self.refinement_net(half_disp,left_half,right_half)
         out1 = F.interpolate(refinement_disp * 2.0, scale_factor=(2.0, 2.0),mode='bilinear',align_corners =False).squeeze(1)
         out2 = F.interpolate(half_disp * 2.0, scale_factor=(2.0, 2.0),mode='bilinear',align_corners =False).squeeze(1)
-                                            
-        return out1,out2        
+
+        return out1,out2
